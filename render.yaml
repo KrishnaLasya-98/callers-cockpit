@@ -14,6 +14,6 @@ services:
       - key: LLM_KEY
         sync: false
       - key: LLM_MODEL
-        value: gemini-2.0-flash
+        value: ministral-8b-2512
       - key: FRONTEND_ORIGIN
         sync: false

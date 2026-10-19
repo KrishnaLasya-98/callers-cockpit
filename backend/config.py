@@ -9,7 +9,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 LLM_KEY = os.getenv("LLM_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.0-flash")
+LLM_MODEL = os.getenv("LLM_MODEL", "ministral-8b-2512")
 
 _raw_origins = os.getenv("FRONTEND_ORIGIN", "")
 FRONTEND_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]

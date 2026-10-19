@@ -17,7 +17,7 @@ Built for the DeepThought FDE task. One screen, live in 48 hours:
 | **Vercel** | Static frontend (`frontend/`) | `https://caller-s-cockpit.vercel.app` |
 | **Render** | FastAPI backend (`backend/`) — holds the LLM key server-side | `https://callers-cockpit-api.onrender.com` |
 | **Supabase** | Postgres (leads / calls / objections) + Auth toggle | `https://YOURPROJECT.supabase.co` |
-| **LLM** | Google **Gemini 2.0 Flash**, free key from AI Studio | key lives only in Render env vars |
+| **LLM** | Google **Mistral **ministral-8b-2512****, free key from AI Studio | key lives only in Render env vars |
 
 ```
 Vite-less static SPA ──▶ FastAPI (Render) ──▶ Supabase Postgres
@@ -46,7 +46,7 @@ uvicorn main:app --reload --port 8000
 
 ### LLM key
 
-1. Get a free key at https://aistudio.google.com/apikey.
+1. Get a free key at https://console.mistral.ai.
 2. Put it in `backend/.env` as `LLM_KEY`.
 
 ### Frontend
@@ -111,6 +111,6 @@ the 100-transcript analysis (`docs/transcript-analysis.md`).
 - [ ] Vercel — frontend
 - [ ] Render — API
 - [ ] Supabase — project URL
-- [ ] LLM — provider (Gemini 2.0 Flash, free key), used via Render only
+- [ ] LLM — provider (Mistral **ministral-8b-2512**, free key), used via Render only
 - [ ] 6-minute video: caller's pain → the screen → LLM decode → architecture → decisions
 - [ ] WhatsApp the CEO before the 48-hour window closes
