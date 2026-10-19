@@ -2,11 +2,24 @@
 
 **The screen a caller keeps open on a cold call.**
 
-Built for the DeepThought FDE task. One screen, live in 48 hours:
+Built for the DeepThought FDE task. One screen, processing calls live:
 
-- **Who am I calling** — lead details, notes, call history, P&L opening script
-- **Live call** — dial timer, one-tap outcome logging *(loaded from your calls endpoint)*
-- **Objection decoder** — type what the MD said → LLM returns *what it actually means* + the next line to say
+- **Who am I calling** — lead details, notes, call history
+- **Live call** — 8-stage stepper, one-tap stage events, "their words" as the only free text
+- **Objection decoder** — post-call LLM debrief: what the log *says* vs what the call *shows*
+
+## The four links
+
+| Deliverable | URL |
+|---|---|
+| **Vercel** (frontend) | https://callers-cockpit-ui.vercel.app |
+| **Render** (API) | https://callers-cockpit-api.onrender.com |
+| **Supabase** (data) | https://nlepmxlknpxpqehaevpr.supabase.co |
+| **LLM** | Mistral `ministral-8b-2512`, free platform key (La Plateforme), called only from the Render backend |
+| GitHub | https://github.com/KrishnaLasya-98/callers-cockpit |
+
+All three platforms on free tiers. All API keys server-side only; the browser
+talks to same-origin `/api/*` (proxied to Render by Vercel rewrite).
 
 ---
 
