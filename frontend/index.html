@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Caller's Cockpit</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Caller's Cockpit</div>
+    <nav class="tabs">
+      <button id="tabLive" class="tab active">Live call</button>
+      <button id="tabLog" class="tab">Call log</button>
+    </nav>
+    <div class="topbar-right">
+      <span id="apiStatus" class="status-dot" title="API status"></span>
+      <span id="clock">--:--</span>
+    </div>
+  </header>
+
+  <!-- ==================== SCREEN 1: LIVE CALL ==================== -->
+  <main id="screenLive" class="screen">
+    <div class="grid-live">
+      <!-- left: who -->
+      <section class="panel">
+        <h2>Next up</h2>
+        <div class="queue-head">
+          <select id="leadPicker"><option value="">loading…</option></select>
+          <button id="refreshBtn" class="btn btn-small" title="Reload leads">↻</button>
+        </div>
+        <div id="leadCard" class="lead-card">
+          <div id="leadName" class="lead-name">—</div>
+          <div class="lead-lines">
+            <div id="leadContact"></div>
+            <div id="leadKind"></div>
+            <div id="leadNotes"></div>
+            <div id="leadNextStep"></div>
+          </div>
+          <div id="leadFlags" class="flags"></div>
+        </div>
+        <h3>Last calls on this lead</h3>
+        <div id="leadHistory" class="mini-list muted">—</div>
+
+        <h2>Stage</h2>
+        <div id="stepper" class="stepper"></div>
+        <div id="stageCard" class="stage-card">
+          <div id="stageName" class="stage-name">Opening</div>
+          <div id="stagePurpose" class="stage-purpose muted"></div>
+          <h3>They tend to say</h3>
+          <div id="stageSay" class="chips"></div>
+          <h3>What happened</h3>
+          <div id="stageTaps" class="chips"></div>
+          <div class="stage-nav">
+            <button id="nextStageBtn" class="btn btn-primary">Next stage →</button>
+            <button id="endCallBtn" class="btn">■ End call here</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- right: live -->
+      <section class="panel">
+        <div class="call-status">
+          <div>
+            <div id="timer" class="timer">00:00:00</div>
+            <div id="callStage" class="muted">call not started</div>
+          </div>
+          <div class="call-actions">
+            <label class="muted">Language
+              <select id="langSel">
+                <option>English</option><option>Hinglish</option><option>Hindi</option>
+                <option>Marathi</option><option>Kannada</option>
+              </select>
+            </label>
+            <button id="startBtn" class="btn btn-start">▶ Dial started</button>
+          </div>
+        </div>
+
+        <h3 class="only-free-text">Their words — the only free text of the call</h3>
+        <textarea id="theirWords" rows="4"
+          placeholder="Exactly what they said. Goal, struggle, objection — verbatim if possible."></textarea>
+
+        <h3>Next step</h3>
+        <div class="nextstep-row">
+          <input id="nextStepText" type="text" placeholder="e.g. Report on WhatsApp + call Tuesday 3pm" />
+          <label class="chk"><input id="nextStepHasTime" type="checkbox" checked /> has day+time</label>
+        </div>
+        <div id="amberNote" class="amber hidden">No day+time recorded. In the transcripts these never get followed up. Pin it or mark it honestly.</div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ==================== SCREEN 2: CALL LOG ==================== -->
+  <main id="screenLog" class="screen hidden">
+    <section class="panel wide">
+      <h2>Calls — where they ended</h2>
+      <div id="stageStats" class="stats muted"></div>
+      <div id="logList" class="log-list">loading…</div>
+    </section>
+  </main>
+
+  <!-- outcome sheet (modal) -->
+  <div id="sheet" class="sheet hidden">
+    <div class="sheet-card">
+      <h2>End of call <span id="sheetStage" class="badge"></span></h2>
+      <h3>What happened (their words, logged honestly)</h3>
+      <div id="outcomeChips" class="chips"></div>
+      <h3>LLM debrief <span class="muted">(audits the log against the call)</span></h3>
+      <button id="debriefBtn" class="btn">✎ Run debrief on my log</button>
+      <div id="debriefOut" class="analysis hidden">
+        <p><b>Observed stage:</b> <span id="dbStage"></span>
+           <b>· Suggested outcome:</b> <span id="dbOutcome"></span></p>
+        <p><b>Summary:</b> <span id="dbSummary"></span></p>
+        <p id="dbMatch" class="mismatch hidden"></p>
+        <p id="dbNext" class="muted"></p>
+      </div>
+      <div class="sheet-actions">
+        <button id="saveCallBtn" class="btn btn-primary">Save call</button>
+        <button id="discardBtn" class="btn">Discard session</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">data: Supabase · api: Render · ui: Vercel · llm: one post-call debrief</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
