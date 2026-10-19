@@ -74,6 +74,11 @@ def list_stage_events(call_id: str) -> list[dict]:
     )
 
 
+def get_call_row(call_id: str) -> dict | None:
+    res = client().table("calls").select("*").eq("id", call_id).execute()
+    return res.data[0] if res.data else None
+
+
 def summarize_call(call_id: str, fields: dict) -> dict:
     """Close-out fields come from the outcome sheet + optional LLM debrief."""
     allowed = {
@@ -83,11 +88,18 @@ def summarize_call(call_id: str, fields: dict) -> dict:
     }
     res = (
         client().table("calls")
-        .update({k: v for k, v in fields.items() if k in allowed})
+        .update({k: v for k, v in fields.items() if k in allowed and v is not None})
         .eq("id", call_id)
         .execute()
     )
-    call = res.data[0]
+    if res.data:
+        call = res.data[0]
+    else:
+        # update({}) or no-op changes return no rows — refetch instead
+        ref = client().table("calls").select("*").eq("id", call_id).execute()
+        call = ref.data[0] if ref.data else None
+        if not call:
+            return None
     _sync_lead(call)
     return call
 

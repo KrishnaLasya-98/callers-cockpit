@@ -101,12 +101,12 @@ async def debrief(
         parsed = json.loads(res.json()["choices"][0]["message"]["content"])
         return {
             "available": True,
-            "observed_stage": int(str(p.get("observed_stage", logged_stage))[:1]) or logged_stage,
-            "suggested_outcome": str(p.get("suggested_outcome", logged_outcome)),
-            "summary": str(p.get("summary", "")),
-            "next_step_text": str(p.get("next_step_text", "")),
-            "next_step_has_time": bool(p.get("next_step_has_time")),
-            "mismatch_note": str(p.get("mismatch_note", "")),
+            "observed_stage": int(str(parsed.get("observed_stage", logged_stage))[:1]) or logged_stage,
+            "suggested_outcome": str(parsed.get("suggested_outcome", logged_outcome)),
+            "summary": str(parsed.get("summary", "")),
+            "next_step_text": str(parsed.get("next_step_text", "")),
+            "next_step_has_time": bool(parsed.get("next_step_has_time")),
+            "mismatch_note": str(parsed.get("mismatch_note", "")),
         }
     except (KeyError, ValueError, IndexError, json.JSONDecodeError) as exc:
         log.error("LLM response could not be parsed: %s", exc)

@@ -134,7 +134,9 @@ def start_call(body: CallStart):
 def tap_stage(call_id: str, body: StageEvent):
     event = db.add_stage_event(call_id, body.stage, body.tap, body.note)
     # keep the row's stage_reached moving upward with the tap
-    db.summarize_call(call_id, {"stage_reached": max(body.stage, _current_stage(call_id))})
+    row = db.get_call_row(call_id)
+    if row:
+        db.summarize_call(call_id, {"stage_reached": max(body.stage, row.get("stage_reached", 1))})
     return event
 
 
