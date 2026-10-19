@@ -12,11 +12,12 @@
 - [x] Rewrite sql/schema.sql + seed 10 Meridian-style leads (with verify_needed flags)
 - [x] Prompts grounded in the transcript world (growth work; decode "already have consultants")
 
-## Phase 2 — Backend (v2) ✅ (import/boot-verified; DB-backed flows need creds)
+## Phase 2 — Backend (v2) ✅ LIVE-VERIFIED (full soak passed on the real database)
 - [x] db.py: call row opens at dial start, stage events, call close-out, lead sync (status + next step + verify flag)
-- [x] POST /llm/debrief implemented (Gemini REST, JSON out, fallback when unreachable)
+- [x] POST /llm/debrief implemented (Mistral REST, JSON out, fallback when unreachable)
 - [x] Routes: /health · /leads (GET/POST) · /leads/{id} (GET/PATCH) · /calls (GET/POST) · /calls/{id}/events (GET/POST) · /calls/{id} (PATCH)
-- [ ] **TODO curl-test each endpoint with live Supabase creds** (blocked until user adds .env values)
+- [x] **Soak test PASSED (2026-10-19)**: 10 seeded leads → call opened → 3 taps (stages 1→3→6) → closed `do_not_call` → Mistral debrief caught the deliberate lie (suggested `follow_up`, mismatch note written back, `llm_reviewed=true` in DB) → call log joins working
+- [x] Deployment key note: legacy anon JWT used (supabase-py 2.11 rejects `sb_publishable_`); anon policies applied via MCP (see sql/fallback-anon-policies.sql) — all keys stay in backend .env, never in the browser
 
 ## Phase 3 — Frontend rebuild ✅ (44/44 element ids verified; JS syntax checked)
 - [x] Screen 1 = live call: lead card + stepper 1–8 + stage card (purpose, "they tend to say", what-happened taps) + their-words box + next-step input with amber day+time warning
