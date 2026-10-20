@@ -18,16 +18,16 @@ Read all three task resources: the call structure, reference screen and supplied
 - Mistral `ministral-8b-2512` post-call audit. Suggestions are optional and saved with the final caller decision. Strict output validation rejects malformed results; manual save remains available on failure.
 - Lead history fetched from lead detail, stage taps retained visually, and missing next-step time flagged.
 
-## Verified status as of 2026-10-20 (before this patch is deployed)
+## Verified status as of 2026-10-20
 
 | Component | Evidence |
 |---|---|
 | GitHub | Repair source and regression tests are included in this revision; repository URL is in README |
-| Vercel | Existing static app responds 200; patched version still needs deployment |
-| Render | https://callers-cockpit.onrender.com/health returns 200 with fixed API; Supabase is not configured, so data endpoints return 500 |
-| Vercel API proxy | Rewrites corrected to the actual Render hostname in this revision; frontend redeployment required |
+| Vercel | Public production URL serves the repaired frontend |
+| Render | https://callers-cockpit.onrender.com/health, /leads and /calls all pass |
+| Vercel API proxy | Public /api/health, /api/leads and /api/calls all pass |
 | Supabase | Backend credentials can read all three tables: 10 leads, 3 calls, 13 events at the initial check |
-| Mistral | API responds; quality checks required in addition to connectivity |
+| Mistral | Live debrief through the public Vercel proxy correctly identifies a timed callback as next_step_agreed at stage 7 |
 | Local repair checks | 12 Python tests and 8 JavaScript workflow tests pass; four live Mistral scenarios pass. Browser layout and deployed walkthrough are still pending |
 | Video | Not provided or verified |
 | Submission | Not verified |
@@ -48,6 +48,6 @@ Read all three task resources: the call structure, reference screen and supplied
 
 Browser access and the registration timestamp are still needed for dashboard work and deadline calculation. Existing permissive anon policies were recorded in earlier notes; do not claim backend-only database access without checking/removing those policies using a working service-role key. The demo API itself is public and must contain only fictional data.
 
-The Windows integration found the signed-in Render window. An initial attempt stopped because it could not verify the browser URL; a later retry read the correct setup page but failed to activate the window and timed out during recovery. No Render settings or secrets were changed. The read-only deployment checker still reports 404 for all configured Render and Vercel-proxy API paths. Source publication does not complete deployment; verify the live endpoints separately.
+The applicant configured Render's environment and promoted Vercel deployment f4f831f to production. The public frontend, direct API and proxy now pass all seven read-only deployment checks. A live Mistral debrief through the proxy also passes. The service root `/` has no route and its 404 is expected; use `/health`.
 
-Latest deployment check: the service is live at `https://callers-cockpit.onrender.com`, and OpenAPI includes the repaired close-out fields. `/health` reports `supabase: not-configured`; add backend environment variables in Render before expecting data requests to succeed. The service root `/` has no route and its 404 is expected.
+Automatic approval review rejected a proposed synthetic live-write test with only the reason "blocked by policy"; it did not execute or create any records. The final deployed save-and-reload workflow and browser layout checks remain for the applicant's rehearsal. Local workflow tests passed.
