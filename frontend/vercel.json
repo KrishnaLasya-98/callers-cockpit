@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://callers-cockpit-api.onrender.com/$1"
+      "destination": "https://callers-cockpit.onrender.com/$1"
     }
   ]
 }

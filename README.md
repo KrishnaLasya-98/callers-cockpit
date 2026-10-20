@@ -8,7 +8,7 @@ A two-screen guide a caller keeps open during a cold call. Eight stages show pur
 |---|---|
 | Public GitHub repo | https://github.com/KrishnaLasya-98/callers-cockpit |
 | Vercel app | https://callers-cockpit-ui.vercel.app |
-| Render health endpoint | https://callers-cockpit-api.onrender.com/health — deployment pending; returned 404 on 2026-10-20 |
+| Render health endpoint | https://callers-cockpit.onrender.com/health — process live; database environment configuration pending as of 2026-10-20 |
 | Google Drive video | Pending: applicant records at least 6 minutes, visible on camera, and enables anyone-with-link viewing |
 
 Supabase project: https://nlepmxlknpxpqehaevpr.supabase.co. LLM: **Mistral `ministral-8b-2512`**, called from the backend using a free La Plateforme key. Its single job is post-call debrief: compare captured evidence with the logged stage/outcome, suggest a summary and next step, and identify disagreement. The caller decides whether to apply the suggestion. Invalid responses or outages leave manual saving available.

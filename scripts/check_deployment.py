@@ -9,7 +9,7 @@ from urllib.request import urlopen
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frontend", default="https://callers-cockpit-ui.vercel.app")
-    parser.add_argument("--backend", default="https://callers-cockpit-api.onrender.com")
+    parser.add_argument("--backend", default="https://callers-cockpit.onrender.com")
     args = parser.parse_args()
     checks = [("Frontend", args.frontend.rstrip("/"), None)]
     for label, base in (("Render", args.backend.rstrip("/")),
