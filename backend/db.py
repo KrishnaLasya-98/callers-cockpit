@@ -50,21 +50,34 @@ def update_lead(lead_id: str, fields: dict) -> dict | None:
 
 # ------------------------------------------------------------------ calls
 
-def create_call(lead_id: str, language: str | None = None) -> dict:
+def create_call(lead_id: str, language: str | None = None, call_id: str | None = None) -> dict:
     """Call opens the moment dialing starts — stage taps attach to it live."""
-    return (
-        client().table("calls")
-        .insert({"lead_id": lead_id, "language": language})
-        .execute().data[0]
-    )
+    fields = {"lead_id": lead_id, "language": language}
+    if call_id:
+        fields["id"] = call_id
+        rows = client().table("calls").upsert(fields, on_conflict="id", ignore_duplicates=True).execute().data
+        row = rows[0] if rows else get_call_row(call_id)
+        if not row or row["lead_id"] != lead_id:
+            raise ValueError("Call identifier conflict")
+        return row
+    return client().table("calls").insert(fields).execute().data[0]
 
 
-def add_stage_event(call_id: str, stage: int, tap: str, note: str | None = None) -> dict:
-    return (
-        client().table("stage_events")
-        .insert({"call_id": call_id, "stage": stage, "tap": tap, "note": note})
-        .execute().data[0]
-    )
+def add_stage_event(call_id: str, stage: int, tap: str, note: str | None = None, event_id: str | None = None) -> dict:
+    fields = {"call_id": call_id, "stage": stage, "tap": tap, "note": note}
+    if event_id:
+        fields["id"] = event_id
+        rows = client().table("stage_events").upsert(fields, on_conflict="id", ignore_duplicates=True).execute().data
+        row = rows[0] if rows else get_stage_event(event_id)
+        if not row or row["call_id"] != call_id or row["stage"] != stage or row["tap"] != tap:
+            raise ValueError("Event identifier conflict")
+        return row
+    return client().table("stage_events").insert(fields).execute().data[0]
+
+
+def get_stage_event(event_id: str) -> dict | None:
+    rows = client().table("stage_events").select("*").eq("id", event_id).execute().data
+    return rows[0] if rows else None
 
 
 def list_stage_events(call_id: str) -> list[dict]:
@@ -131,8 +144,9 @@ def list_calls(limit: int = 200) -> list[dict]:
         client().table("calls").select(
             "id, lead_id, started_at, duration_s, outcome, stage_reached, "
             "next_step_text, next_step_has_time, summary, logged_vs_observed_note, "
-            "their_words, leads(company)"
+            "their_words, llm_reviewed, leads(company)"
         )
+        .gt("duration_s", 0)
         .order("started_at", desc=True)
         .limit(limit)
         .execute()

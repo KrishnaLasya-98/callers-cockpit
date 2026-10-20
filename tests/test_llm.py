@@ -1,4 +1,5 @@
 import json
+import asyncio
 import sys
 import unittest
 from pathlib import Path
@@ -59,6 +60,12 @@ class ModelResponseTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(llm, "LLM_KEY", "test-key"), patch.object(llm.httpx, "AsyncClient", FailingHTTP):
             result = await llm.debrief("not_logged", 1, "", [], "Demo")
         self.assertFalse(result["available"])
+
+    async def test_busy_model_does_not_build_an_unbounded_queue(self):
+        with patch.object(llm, "LLM_KEY", "test-key"), patch.object(llm, "_slots", asyncio.Semaphore(0)):
+            result = await llm.debrief("not_logged", 1, "", [], "Demo")
+        self.assertFalse(result["available"])
+        self.assertIn("busy", result["error"])
 
 
 if __name__ == "__main__":

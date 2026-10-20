@@ -70,18 +70,18 @@ alter table calls        enable row level security;
 alter table stage_events enable row level security;
 -- Backend uses the service-role key => bypasses RLS. No other policies: locked by default.
 
--- ============================================================
--- Seed: leads drawn from the transcript world
--- (fictional Meridian Growth Partners-style prospects)
--- ============================================================
-insert into leads (company, contact_name, prospect_role, phone, kind, language, notes, status, verify_needed) values
-('Kalpana Chem Supplies', 'S. Rao', 'Technical Services Director', '+91 98xxx 11111', 'mid-size private company', 'English', 'From T001 — last call went to next_step_agreed. Confirm names before dialing.', 'interested', false),
-('Kalyx Enterprises', 'Kalyx switchboard', null, '+91 98xxx 22222', 'mid-size private company', 'English', 'From T046 — outcome was not_logged. Reception screens dialers.', 'queue', true),
-('Aerolink Signal Systems', 'R. Iyer', 'listed as Director, Strategic Marketing', '+91 98xxx 33333', 'mid-size private company', 'English', 'From T004 — wrong_person. Ask for Strategic Marketing, not marketing.', 'wrong_person', true),
-('Kaveri Electric Motors', 'V. Menon', 'Chief Executive Officer', '+91 98xxx 44444', 'mid-size private manufacturer', 'English', 'From T006 — next_step_agreed, strong call. Hand to leadership.', 'next_step_agreed', false),
-('Udhav Textiles', 'Udhav group desk', null, '+91 98xxx 55555', 'listed Indian company', 'English', 'From T007 — not_interested after 59s. Keep for quarterly touch.', 'not_interested', false),
-('Novara Foods India', 'Novara office', null, '+91 98xxx 66666', 'India arm of a multinational', 'English', 'From T003 — do_not_call in 34s. Do not redial this quarter.', 'do_not_call', false),
-('Suvarna Microsystems', 'Suvarna office', null, '+91 98xxx 77777', 'startup', 'English', 'From T005 — not_logged, 36s. Number may be stale.', 'queue', true),
-('Orbit Automation', 'A. Sharma', 'CEO and CTO', '+91 98xxx 88888', 'startup', 'English', 'From T002 — promised a 30-minute call-back but logged nothing. Pin the back-time this round.', 'follow_up', false),
-('Surana Metal Works', 'M. Bhat', 'Promoter', '+91 98xxx 99999', 'mid-size private manufacturer', 'Hinglish', 'Composite lead — language wall risk in first 30s. Ask language first.', 'queue', false),
-('Bharat Forgefold Pvt Ltd', 'N. Pillai', 'Managing Director', '+91 98xxx 10101', 'mid-size private manufacturer', 'English', 'Fresh lead. Objection-archetype expected: already have consultants.', 'queue', false);
+-- Original fictional demo data; no transcript people or companies are distributed.
+insert into leads (company, contact_name, prospect_role, phone, kind, language, notes, status, verify_needed)
+select * from (values
+('Aster Precision', 'Maya S.', 'Operations director', '+91 00000 00001', 'manufacturing', 'English', 'Original demo: ask about production capacity before discussing growth.', 'queue', false),
+('Cedar Mobility', 'Arun P.', 'Founder', '+91 00000 00002', 'mobility', 'Hinglish', 'Original demo: a callback was offered. Confirm a day and time.', 'follow_up', false),
+('Lumen Packaging', 'Nila R.', 'Managing director', '+91 00000 00003', 'packaging', 'English', 'Original demo: interested in a written introduction before a meeting.', 'queue', false),
+('Willow Textiles', 'Dev K.', 'Plant head', '+91 00000 00004', 'textiles', 'Hindi', 'Original demo: confirm decision authority and preferred language.', 'queue', false),
+('Solace Instruments', 'Ira M.', 'Finance director', '+91 00000 00005', 'instruments', 'English', 'Original demo: existing supplier. Understand fit without assuming interest.', 'not_interested', false),
+('Juniper Foods', 'Aadi T.', 'Owner', '+91 00000 00006', 'food manufacturing', 'English', 'Original demo: contact opted out. Do not dial.', 'do_not_call', false),
+('Copperleaf Systems', 'Tara V.', 'Former director', '+91 00000 00007', 'automation', 'English', 'Original demo: contact details need verification before another call.', 'moved_company', true),
+('Meadow Components', 'Ravi L.', 'Production director', '+91 00000 00008', 'components', 'Marathi', 'Original demo: explain the offer briefly and listen for a practical constraint.', 'queue', false),
+('Pinecrest Materials', 'Sara B.', 'Commercial director', '+91 00000 00009', 'materials', 'English', 'Original demo: report review on a named channel, no meeting commitment yet.', 'agreed_to_receive_report', false),
+('Cobalt Works', 'Kiran D.', 'Founder', '+91 00000 00010', 'engineering', 'Kannada', 'Original demo: route to an appropriate language specialist if needed.', 'queue', false)
+) as sample(company, contact_name, prospect_role, phone, kind, language, notes, status, verify_needed)
+where not exists (select 1 from leads existing where existing.company = sample.company);

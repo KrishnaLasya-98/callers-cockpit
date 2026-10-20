@@ -1,128 +1,360 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Caller's Cockpit</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">Caller's Cockpit</div>
-    <nav class="tabs">
-      <button id="tabLive" class="tab active">Live call</button>
-      <button id="tabLog" class="tab">Call log</button>
-    </nav>
-    <div class="topbar-right">
-      <span id="apiStatus" class="status-dot" title="API status"></span>
-      <span id="clock">--:--</span>
-    </div>
-  </header>
-
-  <!-- ==================== SCREEN 1: LIVE CALL ==================== -->
-  <main id="screenLive" class="screen">
-    <div class="grid-live">
-      <!-- left: who -->
-      <section class="panel">
-        <h2>Next up</h2>
-        <div class="queue-head">
-          <select id="leadPicker"><option value="">loading…</option></select>
-          <button id="refreshBtn" class="btn btn-small" title="Reload leads">↻</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#142c29" />
+    <meta
+      name="description"
+      content="A focused call guide. Listen, capture the evidence, and leave a useful record."
+    />
+    <title>Caller's Cockpit</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="domain.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#screenLive">Skip to workspace</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Caller’s Cockpit home"
+        ><span class="brand-mark" aria-hidden="true">c<span>c</span></span
+        ><span
+          >Caller’s cockpit<small>MAKE EVERY CONVERSATION COUNT</small></span
+        ></a
+      >
+      <nav class="tabs" aria-label="Workspace">
+        <button id="tabLive" class="tab active" aria-current="page">
+          Live workspace</button
+        ><button id="tabLog" class="tab">Call journal</button>
+      </nav>
+      <div class="topbar-right">
+        <span id="apiStatus" class="status-dot" aria-hidden="true"></span
+        ><span id="connectionText">Connecting</span><span id="clock">--:--</span
+        ><button id="logoutBtn" class="btn btn-small hidden">Sign out</button>
+      </div>
+    </header>
+    <div
+      id="notice"
+      class="notice hidden"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <main id="screenLive" class="screen" tabindex="-1">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">THE CONVERSATION, FIRST</p>
+          <h1>A little structure.<br />A better conversation.</h1>
         </div>
-        <div id="leadCard" class="lead-card">
-          <div id="leadName" class="lead-name">—</div>
-          <div class="lead-lines">
-            <div id="leadContact"></div>
-            <div id="leadKind"></div>
-            <div id="leadNotes"></div>
-            <div id="leadNextStep"></div>
+        <p class="page-intro">
+          Stay with the person on the line.<br />We’ll keep your place.
+        </p>
+      </div>
+      <div class="grid-live">
+        <aside class="panel lead-panel" aria-label="Prospect context">
+          <div class="section-heading">
+            <h2>Who’s on the line</h2>
+            <span class="section-number">01</span>
           </div>
-          <div id="leadFlags" class="flags"></div>
-        </div>
-        <h3>Last calls on this lead</h3>
-        <div id="leadHistory" class="mini-list muted">—</div>
-
-        <h2>Stage</h2>
-        <div id="stepper" class="stepper"></div>
-        <div id="stageCard" class="stage-card">
-          <div id="stageName" class="stage-name">Opening</div>
-          <div id="stagePurpose" class="stage-purpose muted"></div>
-          <h3>They tend to say</h3>
-          <div id="stageSay" class="chips"></div>
-          <h3>What happened</h3>
-          <div id="stageTaps" class="chips"></div>
-          <div class="stage-nav">
-            <button id="nextStageBtn" class="btn btn-primary">Next stage →</button>
-            <button id="endCallBtn" class="btn">■ End call here</button>
+          <label class="field-label" for="leadPicker">Select a prospect</label>
+          <div class="queue-head">
+            <select id="leadPicker">
+              <option value="">Loading prospects…</option></select
+            ><button
+              id="refreshBtn"
+              class="btn btn-small"
+              aria-label="Refresh prospects"
+            >
+              ↻
+            </button>
           </div>
-        </div>
-      </section>
-
-      <!-- right: live -->
-      <section class="panel">
-        <div class="call-status">
-          <div>
-            <div id="timer" class="timer">00:00:00</div>
-            <div id="callStage" class="muted">call not started</div>
+          <div class="lead-card">
+            <span id="leadInitials" class="avatar" aria-hidden="true">—</span>
+            <h3 id="leadName" class="lead-name">Getting your queue ready</h3>
+            <div id="leadContact" class="lead-contact"></div>
+            <div id="leadKind" class="muted small"></div>
+            <div id="leadFlags" class="flags"></div>
           </div>
-          <div class="call-actions">
-            <label class="muted">Language
-              <select id="langSel">
-                <option>English</option><option>Hinglish</option><option>Hindi</option>
-                <option>Marathi</option><option>Kannada</option>
+          <div class="context-block">
+            <h3>Before you call</h3>
+            <p id="leadNotes" class="muted small">
+              Your prospect’s context will appear here.
+            </p>
+            <p id="leadNextStep" class="context-next"></p>
+          </div>
+          <div class="context-block">
+            <h3>Recent conversations</h3>
+            <div id="leadHistory" class="mini-list muted">
+              No prospect selected.
+            </div>
+          </div>
+          <p class="aside-note">
+            A fresh conversation starts with an honest record of the last one.
+          </p>
+        </aside>
+        <section class="panel guide-panel" aria-label="Eight-stage call guide">
+          <div class="section-heading">
+            <h2>Your call guide</h2>
+            <span class="section-number">02</span>
+          </div>
+          <div id="stepper" class="stepper" aria-label="Call stages"></div>
+          <div class="stage-card">
+            <p id="stageCounter" class="eyebrow">STAGE 01 / 08</p>
+            <h2 id="stageName" class="stage-name">Opening</h2>
+            <p id="stagePurpose" class="stage-purpose"></p>
+            <h3 class="field-label">Be ready for</h3>
+            <div id="stageSay" class="reactions"></div>
+            <div class="tap-heading">
+              <h3>What happened?</h3>
+              <span>Tap what you heard</span>
+            </div>
+            <div id="stageTaps" class="chips" aria-label="Stage events"></div>
+            <p id="tapStatus" class="sync-note" role="status">
+              Start a call to record events.
+            </p>
+            <div class="stage-nav">
+              <button id="nextStageBtn" class="btn btn-primary">
+                Next: Purpose →</button
+              ><button id="endCallBtn" class="btn">End call here</button>
+            </div>
+          </div>
+        </section>
+        <section
+          class="panel capture-panel"
+          aria-label="Call controls and prospect words"
+        >
+          <div class="section-heading">
+            <h2>Listen &amp; capture</h2>
+            <span class="section-number">03</span>
+          </div>
+          <div class="call-controls">
+            <div class="call-status">
+              <div>
+                <p id="callStage" class="eyebrow">READY WHEN YOU ARE</p>
+                <div id="timer" class="timer" aria-label="Call duration">
+                  00:00:00
+                </div>
+              </div>
+              <span id="livePill" class="live-pill">Standby</span>
+            </div>
+            <div class="call-actions">
+              <label class="field-label" for="langSel"
+                >Conversation language</label
+              ><select id="langSel">
+                <option>English</option>
+                <option>Hinglish</option>
+                <option>Hindi</option>
+                <option>Marathi</option>
+                <option>Kannada</option>
+                <option>Other</option></select
+              ><button id="startBtn" class="btn btn-start">Start call ↗</button>
+            </div>
+          </div>
+          <div class="capture-content">
+            <div class="words-heading">
+              <label for="theirWords">Their words</label
+              ><span id="wordCount">0 / 10000</span>
+            </div>
+            <textarea
+              id="theirWords"
+              rows="6"
+              maxlength="10000"
+              placeholder="Their goal. Their constraint. Their reason. Capture the words you don’t want to lose."
+              aria-describedby="wordsHint"
+            ></textarea>
+            <p id="wordsHint" class="helper">
+              Your only free-text box during the call. Listen first; capture
+              what matters.
+            </p>
+            <p id="draftStatus" class="sync-note" role="status">
+              No active draft
+            </p>
+            <details class="followup">
+              <summary>Pin the next step <span>Optional</span></summary>
+              <p class="helper">
+                Use the commitment they offered. Leave uncertain details blank.
+              </p>
+              <label for="followupType" class="field-label">Agreed action</label
+              ><select id="followupType">
+                <option value="">Not agreed yet</option>
+                <option value="report">Send a report</option>
+                <option value="callback">Call back</option>
+                <option value="meeting">Meet</option>
+                <option value="referral">
+                  Connect with a referral
+                </option></select
+              ><label for="followupChannel" class="field-label">Channel</label
+              ><select id="followupChannel">
+                <option value="">Not specified</option>
+                <option>Phone</option>
+                <option>WhatsApp</option>
+                <option>Email</option>
+                <option>Google Meet</option>
               </select>
-            </label>
-            <button id="startBtn" class="btn btn-start">▶ Dial started</button>
+              <div class="date-fields">
+                <label for="followupDate"
+                  >Day<input id="followupDate" type="date" /></label
+                ><label for="followupTime"
+                  >Time<input id="followupTime" type="time"
+                /></label>
+              </div>
+              <p class="helper">Times use your device’s local timezone.</p>
+            </details>
+            <p id="commitmentPreview" class="commitment-preview">
+              No next step captured yet.
+            </p>
+            <button id="retrySyncBtn" class="btn hidden">
+              Retry unsaved events
+            </button>
           </div>
+        </section>
+      </div>
+      <div class="workspace-foot">
+        <span>Listen carefully. Log honestly.</span
+        ><span id="workspaceMode">Public demo · fictional data only</span>
+      </div>
+    </main>
+    <main id="screenLog" class="screen hidden" tabindex="-1">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">A RECORD TO BUILD ON</p>
+          <h1>The call journal.</h1>
         </div>
-
-        <h3 class="only-free-text">Their words — capture what matters</h3>
-        <textarea id="theirWords" rows="4"
-          placeholder="Exactly what they said. Goal, struggle, objection — verbatim if possible."></textarea>
-
-        <h3>Next step</h3>
-        <div class="nextstep-row">
-          <input id="nextStepText" type="text" placeholder="e.g. Report on WhatsApp + call Tuesday 3pm" />
-          <label class="chk"><input id="nextStepHasTime" type="checkbox" /> day+time confirmed</label>
+        <button id="refreshLogBtn" class="btn">Refresh journal ↻</button>
+      </div>
+      <div id="journalStats" class="journal-stats"></div>
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Where conversations ended</h2>
+          <span class="helper">Reached stage, not a conversion funnel</span>
         </div>
-        <div id="amberNote" class="amber hidden">No day and time recorded. Confirm when to follow up, or leave this flagged.</div>
+        <div id="stageStats" class="stage-stats"></div>
       </section>
-    </div>
-  </main>
-
-  <!-- ==================== SCREEN 2: CALL LOG ==================== -->
-  <main id="screenLog" class="screen hidden">
-    <section class="panel wide">
-      <h2>Calls — where they ended</h2>
-      <div id="stageStats" class="stats muted"></div>
-      <div id="logList" class="log-list">loading…</div>
-    </section>
-  </main>
-
-  <!-- outcome sheet (modal) -->
-  <div id="sheet" class="sheet hidden">
-    <div class="sheet-card">
-      <h2>End of call <span id="sheetStage" class="badge"></span></h2>
-      <h3>What happened (their words, logged honestly)</h3>
-      <div id="outcomeChips" class="chips"></div>
-      <h3>LLM debrief <span class="muted">(audits the log against the call)</span></h3>
-      <button id="debriefBtn" class="btn">✎ Run debrief on my log</button>
-      <div id="debriefOut" class="analysis hidden">
-        <p><b>Observed stage:</b> <span id="dbStage"></span>
-           <b>· Suggested outcome:</b> <span id="dbOutcome"></span></p>
-        <p><b>Summary:</b> <span id="dbSummary"></span></p>
-        <p id="dbMatch" class="mismatch hidden"></p>
-        <p id="dbNext" class="muted"></p>
+      <section class="panel journal-panel">
+        <div class="journal-tools">
+          <label class="search-label" for="logSearch"
+            >Search conversations<input
+              id="logSearch"
+              type="search"
+              placeholder="Company, words or next step…" /></label
+          ><label for="logOutcome"
+            >Outcome<select id="logOutcome">
+              <option value="">All outcomes</option>
+            </select></label
+          ><label for="logStage"
+            >Stage<select id="logStage">
+              <option value="">All stages</option>
+            </select></label
+          >
+        </div>
+        <p id="logCount" class="helper" role="status"></p>
+        <div id="logList" class="log-list" aria-live="polite">
+          Loading conversations…
+        </div>
+      </section>
+    </main>
+    <div
+      id="sheet"
+      class="sheet hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sheetTitle"
+    >
+      <div class="sheet-card" tabindex="-1">
+        <p class="eyebrow">WRAP UP WITH CLARITY</p>
+        <div class="sheet-title">
+          <h2 id="sheetTitle">What happened?</h2>
+          <span id="sheetStage" class="badge"></span>
+        </div>
+        <p class="helper">
+          Your call is paused. Review the evidence, then leave a useful record.
+        </p>
+        <label for="stageReached" class="field-label"
+          >Highest stage with substance</label
+        ><select id="stageReached"></select>
+        <h3 class="field-label">Call outcome</h3>
+        <div id="outcomeChips" class="chips outcomes"></div>
+        <label class="field-label" for="nextStepText"
+          >Next step · review after the call</label
+        ><input
+          id="nextStepText"
+          type="text"
+          maxlength="1000"
+          placeholder="One agreed action, with its time or channel"
+        /><label class="chk"
+          ><input id="nextStepHasTime" type="checkbox" /> A day and time were
+          confirmed</label
+        >
+        <p id="amberNote" class="amber hidden">
+          Follow-up timing is unspecified. Confirm it or leave it flagged.
+        </p>
+        <div class="debrief-heading">
+          <div>
+            <h3>Get a second look</h3>
+            <p class="helper">
+              AI checks your log against the captured evidence. You decide.
+            </p>
+          </div>
+          <button id="debriefBtn" class="btn">Run debrief ↗</button>
+        </div>
+        <div id="debriefOut" class="analysis hidden">
+          <div class="review-facts">
+            <p><span>Suggested stage</span><strong id="dbStage"></strong></p>
+            <p>
+              <span>Suggested outcome</span><strong id="dbOutcome"></strong>
+            </p>
+          </div>
+          <p id="dbSummary"></p>
+          <p id="dbMatch" class="mismatch hidden"></p>
+          <p id="dbNext" class="helper"></p>
+          <div class="review-actions">
+            <button id="applyDebriefBtn" class="btn btn-primary">
+              Use suggestion</button
+            ><button id="keepLogBtn" class="btn">Keep my log</button>
+          </div>
+          <p id="reviewDecision" class="helper" role="status"></p>
+        </div>
+        <div class="sheet-actions">
+          <button id="backToCallBtn" class="btn">← Back to call</button
+          ><button id="saveCallBtn" class="btn btn-primary">
+            Save conversation
+          </button>
+        </div>
+        <button id="discardBtn" class="text-button">
+          Close without notes · keep as not logged
+        </button>
       </div>
-      <div class="sheet-actions">
-        <button id="saveCallBtn" class="btn btn-primary">Save call</button>
-        <button id="discardBtn" class="btn">Discard session</button>
-      </div>
     </div>
-  </div>
-
-  <footer class="foot">data: Supabase · api: Render · ui: Vercel · llm: one post-call debrief</footer>
-
-  <script src="app.js"></script>
-</body>
+    <div
+      id="loginSheet"
+      class="sheet hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="loginTitle"
+    >
+      <form id="loginForm" class="sheet-card login-card">
+        <p class="eyebrow">YOUR PRIVATE WORKSPACE</p>
+        <h2 id="loginTitle">Welcome back.</h2>
+        <p class="helper">
+          Sign in with the account your workspace owner approved.
+        </p>
+        <label for="loginEmail"
+          >Email<input
+            id="loginEmail"
+            type="email"
+            required
+            autocomplete="username" /></label
+        ><label for="loginPassword"
+          >Password<input
+            id="loginPassword"
+            type="password"
+            required
+            autocomplete="current-password" /></label
+        ><button id="loginBtn" class="btn btn-primary" type="submit">
+          Sign in
+        </button>
+        <p id="loginError" class="mismatch" role="alert"></p>
+      </form>
+    </div>
+  </body>
 </html>
