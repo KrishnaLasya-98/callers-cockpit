@@ -1,11 +1,12 @@
 """Caller's Cockpit API — FastAPI backend (deploy target: Render)."""
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import db
-from config import FRONTEND_ORIGINS, LLM_MODEL, PORT, SUPABASE_URL
+from config import FRONTEND_ORIGINS, LLM_MODEL, SUPABASE_URL
 from llm import debrief
+from models import Outcome
 
 app = FastAPI(title="Caller's Cockpit API", version="2.0.0")
 
@@ -20,9 +21,6 @@ app.add_middleware(
 
 # ---------------------------------------------------------------- schemas
 
-OUTCOME = Field(pattern="^(agreed_to_receive_report|next_step_agreed|interested|"
-                        "follow_up|call_again|not_interested|do_not_call|"
-                        "wrong_person|moved_company|not_logged)$")
 STAGE = Field(ge=1, le=8)
 
 
@@ -56,22 +54,26 @@ class StageEvent(BaseModel):
 
 
 class CallClose(BaseModel):
-    outcome: str = OUTCOME
+    outcome: Outcome
     stage_reached: int = STAGE
-    duration_s: int = 0
+    duration_s: int = Field(default=0, ge=0)
     their_words: str = ""
     next_step_text: str = ""
     next_step_has_time: bool = False
     summary: str = ""
     language: str | None = None
+    llm_reviewed: bool = False
+    logged_vs_observed_note: str = ""
 
 
 class DebriefRequest(BaseModel):
     call_id: str | None = None
-    logged_outcome: str = OUTCOME
+    logged_outcome: Outcome
     logged_stage: int = STAGE
     their_words: str = ""
     lead_context: str = ""
+    next_step_text: str = ""
+    next_step_has_time: bool = False
 
 
 # ---------------------------------------------------------------- routes
@@ -119,30 +121,35 @@ def lead_update(lead_id: str, body: LeadUpdate):
 # ---------------- calls ----------------
 
 @app.get("/calls")
-def calls(limit: int = 200):
+def calls(limit: int = Query(default=200, ge=1, le=500)):
     return db.list_calls(limit)
 
 
 @app.post("/calls")
 def start_call(body: CallStart):
     """Open the call row the moment dialing starts — taps attach live."""
-    call = db.create_call(body.lead_id, body.language)
-    return db.summarize_call(call["id"], {}) or call
+    if not db.get_lead(body.lead_id):
+        raise HTTPException(404, "Lead not found")
+    return db.create_call(body.lead_id, body.language)
 
 
 @app.post("/calls/{call_id}/events")
 def tap_stage(call_id: str, body: StageEvent):
+    row = db.get_call_row(call_id)
+    if not row:
+        raise HTTPException(404, "Call not found")
     event = db.add_stage_event(call_id, body.stage, body.tap, body.note)
     # keep the row's stage_reached moving upward with the tap
-    row = db.get_call_row(call_id)
-    if row:
-        db.summarize_call(call_id, {"stage_reached": max(body.stage, row.get("stage_reached", 1))})
+    db.advance_stage(call_id, body.stage)
     return event
 
 
 @app.patch("/calls/{call_id}")
 def close_call(call_id: str, body: CallClose):
-    call = db.summarize_call(call_id, body.model_dump())
+    fields = body.model_dump()
+    if not fields["next_step_text"].strip():
+        fields["next_step_has_time"] = False
+    call = db.summarize_call(call_id, fields)
     if not call:
         raise HTTPException(404, "Call not found")
     return call
@@ -158,12 +165,13 @@ def events(call_id: str):
 @app.post("/llm/debrief")
 async def llm_debrief(body: DebriefRequest):
     context = body.lead_context
-    if body.call_id and not context:
-        call = db.list_calls(500)
-        for c in call:
-            if c["id"] == body.call_id:
-                context = f"{c.get('company') or 'unknown lead'} (stage {body.logged_stage})"
-                break
+    if body.call_id:
+        call = db.get_call_row(body.call_id)
+        if not call:
+            raise HTTPException(404, "Call not found")
+        if not context:
+            lead = db.get_lead(call["lead_id"])
+            context = (lead or {}).get("company", "unknown lead")
     events = db.list_stage_events(body.call_id) if body.call_id else []
     out = await debrief(
         logged_outcome=body.logged_outcome,
@@ -171,12 +179,8 @@ async def llm_debrief(body: DebriefRequest):
         their_words=body.their_words,
         events=[e.model_dump() if hasattr(e, "model_dump") else e for e in events],
         lead_context=context,
+        next_step_text=body.next_step_text,
+        next_step_has_time=body.next_step_has_time,
     )
-    if out.get("available") and body.call_id:
-        note = out["mismatch_note"] or None
-        db.summarize_call(body.call_id, {
-            "summary": out["summary"] or None,
-            "llm_reviewed": True,
-            **({"logged_vs_observed_note": note} if note else {}),
-        })
+    # Suggestions are saved with the caller's final decision, never mid-session.
     return out

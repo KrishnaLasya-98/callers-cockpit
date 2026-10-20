@@ -79,6 +79,13 @@ def get_call_row(call_id: str) -> dict | None:
     return res.data[0] if res.data else None
 
 
+def advance_stage(call_id: str, stage: int) -> None:
+    """Concurrent taps must never move the recorded stage backward."""
+    client().table("calls").update({"stage_reached": stage}).eq(
+        "id", call_id
+    ).lt("stage_reached", stage).execute()
+
+
 def summarize_call(call_id: str, fields: dict) -> dict:
     """Close-out fields come from the outcome sheet + optional LLM debrief."""
     allowed = {
@@ -100,28 +107,19 @@ def summarize_call(call_id: str, fields: dict) -> dict:
         call = ref.data[0] if ref.data else None
         if not call:
             return None
-    _sync_lead(call)
+    if "outcome" in fields:
+        _sync_lead(call)
     return call
-
-
-# "highest stage whose characteristic event appears" — mirrors the analysis heuristic
-_STAGE_SYNC = {
-    7: {"outcome": {"agreed_to_receive_report", "next_step_agreed"}},
-    6: {"outcome": {"interested"}},
-    3: {"outcome": {"wrong_person", "moved_company", "do_not_call"}},
-}
 
 
 def _sync_lead(call: dict) -> None:
     """Keep the lead's surface synced with the truth of the last call."""
-    fields: dict = {"status": call["outcome"]}
-    if call.get("next_step_text"):
-        fields["next_step_text"] = call["next_step_text"]
-        fields["next_step_at"] = None
-        if call.get("next_step_has_time"):
-            # Times pinned in stage events are free text; the caller edits the
-            # lead if a calendar date exists. Amber-without-time is the default.
-            fields["next_step_at"] = call.get("next_step_at")
+    fields: dict = {
+        "status": call["outcome"],
+        "next_step_text": call.get("next_step_text") or "",
+        # Free-text times are not calendar dates; never retain an old date.
+        "next_step_at": None,
+    }
     if call["outcome"] in {"wrong_person", "moved_company", "do_not_call"}:
         fields["verify_needed"] = True
     update_lead(call["lead_id"], fields)

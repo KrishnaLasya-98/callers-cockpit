@@ -1,129 +1,86 @@
 # Caller's Cockpit
 
-**The screen a caller keeps open on a cold call.**
+A two-screen guide a caller keeps open during a cold call. Eight stages show purpose, common prospect reactions and one-tap events. Capture the prospect's words, record a next step, then save the call. The call log shows the stage reached and any retained debrief disagreement.
 
-Built for the DeepThought FDE task. One screen, processing calls live:
+## Submission links
 
-- **Who am I calling** — lead details, notes, call history
-- **Live call** — 8-stage stepper, one-tap stage events, "their words" as the only free text
-- **Objection decoder** — post-call LLM debrief: what the log *says* vs what the call *shows*
-
-## The four links
-
-| Deliverable | URL |
+| Deliverable | Link / status |
 |---|---|
-| **Vercel** (frontend) | https://callers-cockpit-ui.vercel.app |
-| **Render** (API) | https://callers-cockpit-api.onrender.com |
-| **Supabase** (data) | https://nlepmxlknpxpqehaevpr.supabase.co |
-| **LLM** | Mistral `ministral-8b-2512`, free platform key (La Plateforme), called only from the Render backend |
-| GitHub | https://github.com/KrishnaLasya-98/callers-cockpit |
+| Public GitHub repo | https://github.com/KrishnaLasya-98/callers-cockpit |
+| Vercel app | https://callers-cockpit-ui.vercel.app |
+| Render health endpoint | https://callers-cockpit-api.onrender.com/health — deployment pending; returned 404 on 2026-10-20 |
+| Google Drive video | Pending: applicant records at least 6 minutes, visible on camera, and enables anyone-with-link viewing |
 
-All three platforms on free tiers. All API keys server-side only; the browser
-talks to same-origin `/api/*` (proxied to Render by Vercel rewrite).
+Supabase project: https://nlepmxlknpxpqehaevpr.supabase.co. LLM: **Mistral `ministral-8b-2512`**, called from the backend using a free La Plateforme key. Its single job is post-call debrief: compare captured evidence with the logged stage/outcome, suggest a summary and next step, and identify disagreement. The caller decides whether to apply the suggestion. Invalid responses or outages leave manual saving available.
 
----
+## Architecture
 
-## Stack (one job per platform)
-
-| Platform | Role | Deployed at |
-|---|---|---|
-| **Vercel** | Static frontend (`frontend/`) | `https://caller-s-cockpit.vercel.app` |
-| **Render** | FastAPI backend (`backend/`) — holds the LLM key server-side | `https://callers-cockpit-api.onrender.com` |
-| **Supabase** | Postgres (leads / calls / objections) + Auth toggle | `https://YOURPROJECT.supabase.co` |
-| **LLM** | Google **Mistral **ministral-8b-2512****, free key from AI Studio | key lives only in Render env vars |
-
-```
-Vite-less static SPA ──▶ FastAPI (Render) ──▶ Supabase Postgres
-                              └──▶ Gemini (REST, free key)
+```text
+Static HTML/CSS/JS on Vercel
+  -> same-origin /api/* rewrite
+  -> FastAPI on Render
+      -> Supabase Postgres: leads, calls, stage_events
+      -> Mistral chat completions API
 ```
 
----
+Keys live in backend environment variables. This is a public, single-user hiring-task demo; use fictional sample data only. It has no user authentication. Do not store real prospect records in this demo.
 
-## Local setup
+## Local setup (PowerShell)
 
-### Backend
-
-```bash
-cd backend
-python -m venv .venv && .venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-copy .env.example .env                                 # fill in real values
-uvicorn main:app --reload --port 8000
+```powershell
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+Copy-Item backend/.env.example backend/.env
+# Fill backend/.env locally; never commit it.
+.venv/Scripts/python.exe -m uvicorn main:app --app-dir backend --reload --port 8000
 ```
 
-### Side database
+In another terminal:
 
-1. Create a project at supabase.com (free).
-2. SQL Editor → run **`sql/schema.sql`** (creates tables + trigger + seeds 10 sample leads).
-3. Project Settings → API → copy **URL** and **service_role key** into `backend/.env`.
-
-### LLM key
-
-1. Get a free key at https://console.mistral.ai.
-2. Put it in `backend/.env` as `LLM_KEY`.
-
-### Frontend
-
-```bash
-cd frontend
-python -m http.server 5500        # or any static server
-# open http://localhost:5500  (auto-uses http://localhost:8000)
+```powershell
+python -m http.server 5500 --directory frontend
 ```
 
-**API resolution (automatic):** locally the frontend targets `http://localhost:8000`; when deployed
-on Vercel it calls same-origin `/api/*`, which vercel.json rewrites to the Render backend. After
-deploying to Render, update the `destination` URL inside `vercel.json` and redeploy Vercel. A
-one-off override is still possible via `?api=<url>` or `localStorage.API_URL`.
+Open http://localhost:5500. Local pages use http://localhost:8000. Deployed pages use same-origin `/api/*`. Optional developer overrides: `?api=<url>` or `localStorage.API_URL`.
 
----
+For a new Supabase project, run `sql/schema.sql` once. It seeds ten fictional leads; running it again adds duplicate seeds. Configure `SUPABASE_URL` and a backend `SUPABASE_SERVICE_KEY` with access to all three tables. Do not run the legacy permissive anon-policy fallback for a new project. Existing deployments must be checked separately before claiming that RLS restricts access to the backend.
 
 ## Deploy
 
-### 1. Render (backend)
+Render blueprint settings are in `render.yaml`: Python 3.12, Free plan, root `backend`, build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT`, health `/health`.
 
-Option A — **blueprint**: push the repo, on Render "New > Blueprint" → picks up `render.yaml`, then set the three env vars (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `LLM_KEY`, `FRONTEND_ORIGIN`).
+Set these environment variables in Render:
 
-Option B — **manual**: New > Web Service → root dir `backend` → build `pip install -r requirements.txt` → start `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+- `SUPABASE_URL`: your Supabase project URL.
+- `SUPABASE_SERVICE_KEY`: backend-only Supabase service-role key.
+- `LLM_KEY`: Mistral La Plateforme key.
+- `LLM_MODEL`: `ministral-8b-2512` (blueprint default).
+- `FRONTEND_ORIGIN`: `https://callers-cockpit-ui.vercel.app`.
 
-Verify: `GET /health` returns `{"status":"ok", ...}`.
+After Render is live, use its actual hostname in **both** `vercel.json` and `frontend/vercel.json`. Deploy Vercel with root at either the repository or `frontend/`, using the matching config. Update the health link above if the Render hostname differs.
 
-### 2. Vercel (frontend)
+Verify the Render health URL, then `https://callers-cockpit-ui.vercel.app/api/health`, leads and call workflow. A 200 from the static frontend alone does not verify the backend. Render's free service may need time to wake up.
 
-```bash
-npm i -g vercel
-vercel                    # framework: Other → picks up vercel.json (static, frontend/)
-vercel --prod
-```
-Then add the deployed Vercel URL to `FRONTEND_ORIGIN` in Render (comma-separated) and redeploy — CORS.
-
-### 3. Supabase link
-
-Project URL goes in `.env` and in your deliverables — the schema lives in `sql/schema.sql`.
-
----
-
-## API (quick reference)
+## API
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | status probe |
-| GET | `/leads?status=…` · `POST /leads` | call queue / add a lead |
-| GET/PATCH | `/leads/{id}` | lead detail / status, notes, verify flags |
-| GET/POST | `/calls` | past-call log (joined w/ company) / open a live call |
-| POST | `/calls/{id}/events` | a stage tap mid-call (stage, tap, note) |
-| PATCH | `/calls/{id}` | close-out: outcome, stage reached, their words, next step |
-| POST | `/llm/debrief` | **the one LLM job** — audits the log: observed stage, suggested outcome, one-line summary, next step, mismatch note |
+| GET | `/health` | Process/configuration status; not a database connectivity test |
+| GET / POST | `/leads` | Queue / create lead |
+| GET / PATCH | `/leads/{id}` | Detail with recent calls / edit lead |
+| GET / POST | `/calls` | Joined call log / start call |
+| GET / POST | `/calls/{id}/events` | Read / save stage taps |
+| PATCH | `/calls/{id}` | Save final outcome, reached stage, words, next step and accepted review metadata |
+| POST | `/llm/debrief` | Read-only suggestions based on taps, words and next-step capture |
 
-The 8-stage model and the 10-word outcome vocabulary come straight from the task's readings and
-the 100-transcript analysis (`docs/transcript-analysis.md`).
+## Verification
 
----
+```powershell
+.venv/Scripts/python.exe -m unittest discover -s tests -v
+node --test tests/frontend.test.cjs
+python scripts/check_deployment.py
+```
 
-## Deliverables (4 links + 6-min video)
+The first two commands use local fakes, without touching production data. The deployment check performs read-only requests to the real public API. See `docs/TASK.md` for the completion checklist and `docs/video-script.md` for unscripted recording prompts.
 
-- [ ] Vercel — frontend
-- [ ] Render — API
-- [ ] Supabase — project URL
-- [ ] LLM — provider (Mistral **ministral-8b-2512**, free key), used via Render only
-- [ ] 6-minute video: caller's pain → the screen → LLM decode → architecture → decisions
-- [ ] WhatsApp the CEO before the 48-hour window closes
+Source transcripts are task-only material and are not distributed here. The research document contains aggregate observations and original design implications, not transcript excerpts. Earlier repository history may still contain removed quotations; do not publish or redistribute the source archive.

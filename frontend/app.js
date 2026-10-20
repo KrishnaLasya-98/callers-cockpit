@@ -48,7 +48,7 @@ const STAGES = [
     name: "Close",
     purpose: "End clearly. Record the outcome, the step, and the prospect\u2019s words.",
     say: ["Line drops mid-sentence", "Polite goodbye after a no \u2014 still a no", "Logged outcome \u2260 what was said"],
-    taps: [],
+    taps: ["Next step reconfirmed", "Polite close", "Line dropped"],
   },
 ];
 
@@ -84,6 +84,20 @@ const OUTCOMES = [
   let ticking = null, startedAt = null;
   let debriefResult = null; // last debrief for this call
   let saveOutcome = "not_logged";
+  let tapped = new Set();
+  let pendingTaps = 0;
+  let closing = false;
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+
+  function updateControls() {
+    el.leadPicker.disabled = !!activeCallId || el.startBtn.disabled;
+    el.refreshBtn.disabled = !!activeCallId || el.startBtn.disabled;
+    el.langSel.disabled = !!activeCallId;
+    el.saveCallBtn.disabled = closing || pendingTaps > 0 || el.debriefBtn.disabled;
+    el.discardBtn.disabled = el.saveCallBtn.disabled;
+    el.endCallBtn.disabled = pendingTaps > 0;
+  }
 
   const api = (path, opts = {}) =>
     fetch(API_URL + path, { headers: { "Content-Type": "application/json" }, ...opts })
@@ -102,29 +116,49 @@ const OUTCOMES = [
 
   // ---------- leads ----------
   async function loadLeads() {
+    if (activeCallId) return;
+    const previousId = current?.id;
     leads = await api("/leads");
     el.leadPicker.innerHTML = leads.map((l) =>
-      `<option value="${l.id}">${l.company} \u00b7 ${l.contact_name || "\u2014"} \u00b7 ${l.status}</option>`).join("");
-    el.leadPicker.value = "";
-    renderLead(leads[0] ?? null);
+      `<option value="${escapeHtml(l.id)}">${escapeHtml(l.company)} \u00b7 ${escapeHtml(l.contact_name || "\u2014")} \u00b7 ${escapeHtml(l.status)}</option>`).join("");
+    await selectLead(leads.find((l) => l.id === previousId) || leads[0] || null);
     if (current) el.leadPicker.value = current.id;
   }
-  el.leadPicker.onchange = () => renderLead(leads.find((l) => l.id === el.leadPicker.value));
-  el.refreshBtn.onclick = loadLeads;
+  async function selectLead(lead) {
+    renderLead(lead);
+    if (!lead) return;
+    el.leadHistory.textContent = "Loading history…";
+    try {
+      const detail = await api(`/leads/${encodeURIComponent(lead.id)}`);
+      if (current?.id === lead.id) renderLead(detail);
+    } catch (e) {
+      if (current?.id === lead.id) el.leadHistory.textContent = "Could not load history: " + e.message;
+    }
+  }
+  el.leadPicker.onchange = () => selectLead(leads.find((l) => l.id === el.leadPicker.value));
+  el.refreshBtn.onclick = () => loadLeads().catch((e) => alert(e.message));
 
   function renderLead(lead) {
     current = lead;
-    if (!lead) { el.leadName.textContent = "No lead"; return; }
+    if (!lead) {
+      el.leadName.textContent = "No lead";
+      ["leadContact", "leadKind", "leadNotes", "leadNextStep", "leadFlags", "leadHistory"].forEach((id) => el[id].textContent = "");
+      return;
+    }
+    if (!activeCallId) el.langSel.value = lead.language || "English";
     el.leadName.textContent = lead.company;
     el.leadContact.textContent = `${lead.contact_name || "\u2014"} \u00b7 ${lead.prospect_role || "\u2014"} \u00b7 ${lead.phone || "\u2014"}`;
     el.leadKind.textContent = `${lead.kind || "\u2014"} \u00b7 ${lead.language}`;
     el.leadNotes.textContent = lead.notes || "\u2014";
     el.leadNextStep.textContent = lead.next_step_text ? `Next: ${lead.next_step_text}` : "";
     el.leadFlags.innerHTML = (lead.verify_needed ? `<span class="flag warn">\u2691 verify \u2014 wrong person / moved / stale number</span>` : "");
-    el.leadHistory.textContent = "";
+    el.leadHistory.textContent = "No calls yet";
+    if (lead.calls?.length) el.leadHistory.textContent = "";
     (lead.calls || []).slice(0, 3).forEach((c) => {
       const d = new Date(c.started_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-      el.leadHistory.innerHTML += `<div>stage ${c.stage_reached} \u00b7 ${c.outcome} \u00b7 ${d}</div>`;
+      const row = document.createElement("div");
+      row.textContent = `stage ${c.stage_reached} \u00b7 ${c.outcome} \u00b7 ${d}`;
+      el.leadHistory.appendChild(row);
     });
   }
 
@@ -137,21 +171,26 @@ const OUTCOMES = [
     el.stageName.textContent = `Stage ${stage} of 8 \u2014 ${s.name}`;
     el.stagePurpose.textContent = s.purpose;
     el.stageSay.innerHTML = s.say.map((t) => `<span class="chip say">${t}</span>`).join("");
-    el.stageTaps.innerHTML = s.taps.map((t) => `<button class="chip tap" data-t="${t}">${t}</button>`).join("");
-    document.querySelectorAll(".chip.tap").forEach((b) => (b.onclick = () => tap(b.dataset.t)));
+    el.stageTaps.innerHTML = s.taps.map((t) => `<button class="chip tap ${tapped.has(`${stage}:${t}`) ? "pressed" : ""}" data-t="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join("");
+    [...el.stageTaps.children].forEach((b) => (b.onclick = () => tap(b.dataset.t)));
+    el.nextStageBtn.textContent = stage < 8 ? `Next: ${STAGES[stage].name} →` : "Final stage";
+    el.nextStageBtn.disabled = stage === 8;
     el.callStage.textContent = activeCallId ? `${s.name} \u00b7 max reached: stage ${observedMax}` : "call not started";
   }
   function setStage(n) { stage = Math.min(8, Math.max(1, n)); renderStages(); }
 
   async function tap(text) {
     if (!activeCallId) { alert("Press \u201cDial started\u201d first \u2014 the call row opens then."); return; }
-    const btn = [...document.querySelectorAll(".chip.tap")].find((b) => b.dataset.t === text);
+    const tappedStage = stage;
+    pendingTaps++; updateControls();
     try {
-      await api(`/calls/${activeCallId}/events`, { method: "POST", body: JSON.stringify({ stage, tap: text }) });
-      btn.classList.add("pressed");
-      observedMax = Math.max(observedMax, stage);
+      await api(`/calls/${activeCallId}/events`, { method: "POST", body: JSON.stringify({ stage: tappedStage, tap: text }) });
+      tapped.add(`${tappedStage}:${text}`);
+      observedMax = Math.max(observedMax, tappedStage);
+      invalidateDebrief();
       renderStages();
     } catch (e) { alert(e.message); }
+    finally { pendingTaps--; updateControls(); }
   }
 
   el.nextStageBtn.onclick = () => setStage(stage + 1);
@@ -161,14 +200,17 @@ const OUTCOMES = [
   el.startBtn.onclick = async () => {
     if (!current) { alert("Pick a lead"); return; }
     if (activeCallId) { alert("A call is already open"); return; }
+    el.startBtn.disabled = true; updateControls();
     try {
       const call = await api("/calls", { method: "POST", body: JSON.stringify({ lead_id: current.id, language: el.langSel.value }) });
       activeCallId = call.id;
+      stage = 1; tapped.clear();
       observedMax = 1;
       startedAt = Date.now();
       ticking = setInterval(() => (el.timer.textContent = fmt((Date.now() - startedAt) / 1000)), 1000);
       renderStages();
     } catch (e) { alert(e.message); }
+    finally { el.startBtn.disabled = !!activeCallId; updateControls(); }
   };
 
   const fmt = (s) => [s / 3600, (s % 3600) / 60, s % 60].map((n) => `0${Math.floor(n)}`.slice(-2)).join(":");
@@ -188,39 +230,58 @@ const OUTCOMES = [
     }));
   }
 
-  el.nextStepText.oninput = () =>
-    el.amberNote.classList.toggle("hidden", hasRealTime(el.nextStepText.value) || el.nextStepHasTime.checked);
-  el.nextStepHasTime.onchange = () =>
-    el.amberNote.classList.toggle("hidden", hasRealTime(el.nextStepText.value) || el.nextStepHasTime.checked);
+  function invalidateDebrief() {
+    debriefResult = null;
+    el.debriefOut.classList.add("hidden");
+  }
+  function updateTimeWarning() {
+    el.amberNote.classList.toggle("hidden", !el.nextStepText.value.trim() || hasRealTime(el.nextStepText.value) || el.nextStepHasTime.checked);
+  }
+  el.theirWords.oninput = invalidateDebrief;
+  el.nextStepText.oninput = () => { invalidateDebrief(); el.nextStepHasTime.checked = false; updateTimeWarning(); };
+  el.nextStepHasTime.onchange = () => { invalidateDebrief(); updateTimeWarning(); };
 
   function hasRealTime(t) {
-    // heuristics from the transcripts: a real next step names a day or a time
     const v = (t || "").toLowerCase();
-    return !!v && /(mon|tue|wed|thu|fri|sat|sun|tomorrow|today|after \d|\d ?(am|pm)|\d{1,2}:\d{2})/.test(v);
+    const day = /\b(mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?|sun(day)?|tomorrow|today)\b|\b\d{4}-\d{2}-\d{2}\b/.test(v);
+    const time = /\b\d{1,2}(:\d{2})?\s*(am|pm)\b|\b\d{1,2}:\d{2}\b/.test(v);
+    const relative = /\b(in|after)\s+\d+\s*(minutes?|mins?|hours?|hrs?)\b/.test(v);
+    return (day && time) || relative;
   }
 
   el.discardBtn.onclick = async () => {
     if (confirm("Discard WITHOUT saving? The call row stays not_logged.")) {
-      await closeRow({ outcome: "not_logged" });
-      el.sheet.classList.add("hidden");
+      closing = true; updateControls();
+      try {
+        await closeRow({ outcome: "not_logged", stage_reached: observedMax,
+          duration_s: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0 });
+        el.sheet.classList.add("hidden");
+        await loadLeads();
+      } catch (e) { alert(e.message); }
+      finally { closing = false; updateControls(); }
     }
   };
 
   el.saveCallBtn.onclick = async () => {
+    if (closing || pendingTaps) return;
+    closing = true; updateControls();
     try {
       await closeRow({
         outcome: saveOutcome,
-        stage_reached: Math.max(observedMax, debriefResult?.observed_stage || 1),
+        stage_reached: observedMax,
         duration_s: startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0,
         their_words: el.theirWords.value,
         next_step_text: el.nextStepText.value,
-        next_step_has_time: el.nextStepHasTime.checked || hasRealTime(el.nextStepText.value),
+        next_step_has_time: !!el.nextStepText.value.trim() && (el.nextStepHasTime.checked || hasRealTime(el.nextStepText.value)),
         summary: debriefResult?.summary || "",
         language: el.langSel.value,
+        llm_reviewed: !!debriefResult,
+        logged_vs_observed_note: debriefResult && debriefResult.suggested_outcome !== saveOutcome ? debriefResult.mismatch_note : "",
       });
       el.sheet.classList.add("hidden");
       await loadLeads();
     } catch (e) { alert(e.message); }
+    finally { closing = false; updateControls(); }
   };
 
   async function closeRow(fields) {
@@ -229,16 +290,21 @@ const OUTCOMES = [
     activeCallId = null; ticking && clearInterval(ticking); ticking = null;
     el.timer.textContent = "00:00:00";
     stage = 1; observedMax = 1; debriefResult = null; saveOutcome = "not_logged";
+    tapped.clear(); startedAt = null;
+    el.startBtn.disabled = false;
+    el.debriefOut.classList.add("hidden");
     el.theirWords.value = ""; el.nextStepText.value = ""; el.nextStepHasTime.checked = false;
     el.amberNote.classList.add("hidden");
     document.querySelectorAll(".chip.tap.pressed").forEach((b) => b.classList.remove("pressed"));
     renderStages();
+    updateControls();
   }
 
   // ---------- debrief (the ONE LLM job) ----------
   el.debriefBtn.onclick = async () => {
     if (!activeCallId) return;
     el.debriefBtn.disabled = true; el.debriefBtn.textContent = "Auditing my log\u2026";
+    updateControls();
     try {
       const out = await api("/llm/debrief", {
         method: "POST",
@@ -247,6 +313,8 @@ const OUTCOMES = [
           logged_outcome: saveOutcome,
           logged_stage: Math.max(observedMax, 1),
           their_words: el.theirWords.value,
+          next_step_text: el.nextStepText.value,
+          next_step_has_time: el.nextStepHasTime.checked || hasRealTime(el.nextStepText.value),
         }),
       });
       if (!out.available) { alert(out.error || "Debrief unavailable"); return; }
@@ -259,13 +327,19 @@ const OUTCOMES = [
       el.dbMatch.classList.toggle("hidden", !mismatch);
       if (mismatch) el.dbMatch.textContent = `Your log says "${saveOutcome.replace(/_/g, " ")}" but the call suggests otherwise: ${out.mismatch_note}`;
       el.dbNext.textContent = out.next_step_text ? `Next step: ${out.next_step_text}${out.next_step_has_time ? " (has a time)" : " (no day+time \u2014 amber)"}` : "";
-      if (mismatch && confirm(`The LLM suggests "${out.suggested_outcome.replace(/_/g, " ")}" instead. Use it?`)) {
-        saveOutcome = out.suggested_outcome; renderOutcomes();
+      if (confirm(`Apply the debrief suggestion: stage ${out.observed_stage}, "${out.suggested_outcome.replace(/_/g, " ")}" and its next step?`)) {
+        saveOutcome = out.suggested_outcome;
+        observedMax = out.observed_stage;
+        el.nextStepText.value = out.next_step_text;
+        el.nextStepHasTime.checked = out.next_step_has_time;
+        updateTimeWarning(); renderOutcomes(); renderStages();
+        el.sheetStage.textContent = `stage ${observedMax} reviewed`;
       }
     } catch (e) { alert(e.message); }
     finally {
       el.debriefBtn.disabled = false;
       el.debriefBtn.textContent = "\u270e Run debrief on my log";
+      updateControls();
     }
   };
 
@@ -279,16 +353,16 @@ const OUTCOMES = [
         const d = new Date(c.started_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
         const amber = c.next_step_text && !c.next_step_has_time;
         return `<div class="log-row">
-          <span class="log-stage">stage ${c.stage_reached}</span>
-          <span class="log-co">${c.company || "\u2014"}</span>
-          <span class="badge ${c.outcome}">${c.outcome.replace(/_/g, " ")}</span>
-          <span class="log-next ${amber ? "amber" : ""}">${c.next_step_text || ""}</span>
+          <span class="log-stage">stage ${escapeHtml(c.stage_reached)}</span>
+          <span class="log-co">${escapeHtml(c.company || "\u2014")}</span>
+          <span class="badge ${escapeHtml(c.outcome)}">${escapeHtml(c.outcome.replace(/_/g, " "))}</span>
+          <span class="log-next ${amber ? "amber" : ""}">${escapeHtml(c.next_step_text)}</span>
           <span class="muted log-date">${d}</span>
-          ${c.logged_vs_observed_note ? `<div class="mismatch row-note">LLM: ${c.logged_vs_observed_note}</div>` : ""}
+          ${c.logged_vs_observed_note ? `<div class="mismatch row-note">LLM: ${escapeHtml(c.logged_vs_observed_note)}</div>` : ""}
         </div>`;
       }).join("") || "no calls yet";
     } catch (e) { el.logList.textContent = "Could not load calls: " + e.message; }
   }
 
-  loadLeads().catch((e) => console.error("Initial load failed:", e));
+  loadLeads().catch((e) => { el.leadName.textContent = "Could not load leads"; el.leadNotes.textContent = e.message + ". The backend may be waking up; press refresh to retry."; });
 })();

@@ -1,47 +1,19 @@
-# TODO — Caller's Cockpit (48h FDE build)
+# Completion checklist
 
-## Phase 0 — Read & decide ✅
-- [x] Read all 3 readings fully (structure ✓, reference ✓, transcripts → `docs/transcript-analysis.md`)
-- [x] Lock the 8-stage model: Opening · Purpose · Permission · Their business · Their need · Objection · Next step · Close
-- [x] Adopt the transcripts' outcome vocabulary (agreed_to_receive_report, next_step_agreed, interested, follow_up, call_again, not_interested, do_not_call, wrong_person, moved_company, not_logged)
-- [x] Decide the LLM's ONE job: **post-call debrief** — audits the log (observed stage, suggested outcome, one-line summary, next step, mismatch note). Rationale for video: T084 logged do_not_call on a clean close; T002 left an explicit 30-min call-back as not_logged; 13% not_logged → the LLM guards against exactly this.
-- [x] Decide stage-by-stage taps from the analysis (stage 3 = exit-type taps; stage 6 = objection zoo; stage 7 = day+time check)
+See `docs/TASK.md` for the full requirements and `README.md` for setup and commands.
 
-## Phase 1 — Data rebuild ✅
-- [x] New schema: stage_reached 1–8 on calls, 10-word outcome check constraint, their_words, next_step_has_time, stage_events per tap, verify_needed on leads
-- [x] Rewrite sql/schema.sql + seed 10 Meridian-style leads (with verify_needed flags)
-- [x] Prompts grounded in the transcript world (growth work; decode "already have consultants")
+- [x] Implement eight-stage frontend, call log, Supabase schema and FastAPI API.
+- [x] Implement Mistral post-call debrief.
+- [x] Repair discard payload, lead history, next-step warnings and stage-tap display.
+- [x] Validate model responses and make suggestion acceptance explicit.
+- [x] Correct recording requirements: applicant visible, unscripted, at least six minutes, Google Drive.
+- [x] Replace public detailed transcript excerpts with aggregate design notes; private original ignored.
+- [x] Local verification: 12 Python API/model tests and 8 JavaScript workflow tests pass; JS syntax and diff whitespace checks pass. Four live Mistral scenarios passed (timed callback, wrong contact, do-not-call, untimed callback).
+- [ ] Publish this patch and deploy Render Free service.
+- [ ] Deploy frontend with verified Render rewrite URL.
+- [ ] Verify deployed API and complete a persisted call walkthrough.
+- [ ] Verify service-role/RLS configuration before claiming backend-only DB access.
+- [ ] Applicant records and shares the six-minute-or-longer video on Drive.
+- [ ] Applicant submits repo + video through the task page and completes WhatsApp.
 
-## Phase 2 — Backend (v2) ✅ LIVE-VERIFIED (full soak passed on the real database)
-- [x] db.py: call row opens at dial start, stage events, call close-out, lead sync (status + next step + verify flag)
-- [x] POST /llm/debrief implemented (Mistral REST, JSON out, fallback when unreachable)
-- [x] Routes: /health · /leads (GET/POST) · /leads/{id} (GET/PATCH) · /calls (GET/POST) · /calls/{id}/events (GET/POST) · /calls/{id} (PATCH)
-- [x] **Soak test PASSED (2026-10-19)**: 10 seeded leads → call opened → 3 taps (stages 1→3→6) → closed `do_not_call` → Mistral debrief caught the deliberate lie (suggested `follow_up`, mismatch note written back, `llm_reviewed=true` in DB) → call log joins working
-- [x] Deployment key note: legacy anon JWT used (supabase-py 2.11 rejects `sb_publishable_`); anon policies applied via MCP (see sql/fallback-anon-policies.sql) — all keys stay in backend .env, never in the browser
-
-## Phase 3 — Frontend rebuild ✅ (44/44 element ids verified; JS syntax checked)
-- [x] Screen 1 = live call: lead card + stepper 1–8 + stage card (purpose, "they tend to say", what-happened taps) + their-words box + next-step input with amber day+time warning
-- [x] Screen 2 = call log: stage-reached strip + rows with outcome badges, amber date-less next steps, LLM mismatch notes
-- [x] Outcome sheet modal with the 10-word vocabulary + debrief button (LLM suggests, caller accepts or keeps)
-
-## Phase 4 — Deploy ⬜
-- [ ] Supabase: run sql/schema.sql once .env values exist
-- [ ] Render: backend up, env vars, /health green, warm-up ping in video
-- [ ] Vercel: frontend, /api rewrite pointed at the live Render URL
-- [ ] End-to-end soak on a phone (arm's-length usability)
-
-## Phase 5 — Video + submit ⬜
-- [ ] 6-min script draft: caller pain from transcripts → screen → why debrief LLM → deployments → decisions
-- [ ] Record (screen + mic), one take + one spare
-- [ ] WhatsApp submission before the 48h deadline
-
-## Standing rules
-- Frozen scope: nothing extra goes into code at hour 24+; ideas go under "what I'd build next" in the video.
-- The LLM key never ships in the frontend.
-- Every design choice in the video cites either the readings or `docs/transcript-analysis.md`.
-
-## Key numbers to cite in the video (from the analysis)
-- 18% of calls die at stage 3 (wrong person / busy gates); 40%+ if you count early exits
-- 41% of "forward" calls reach stage 7, most without a day+time
-- Stage-5 verbatim capture: ~never happens in the transcripts
-- 13 calls ended not_logged; mismatches exist (T084, T002)
+Use fictional demo data only. Registration timestamp is still needed to calculate the deadline. Existing Git history may retain removed transcript excerpts; history has not been rewritten.

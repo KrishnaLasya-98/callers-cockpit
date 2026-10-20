@@ -178,3 +178,18 @@ textarea {
 .foot {
   text-align: center; color: var(--muted); font-size: 12px; padding: 16px 0 22px;
 }
+
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .screen { padding: 8px; }
+  .panel { padding: 12px; min-width: 0; }
+  .queue-head select { min-width: 0; width: 100%; }
+  .call-status, .call-actions, .nextstep-row { flex-wrap: wrap; gap: 10px; }
+  .nextstep-row input[type="text"] { min-width: 0; width: 100%; flex-basis: 100%; }
+  .stepper { gap: 4px; }
+  .step { flex: 1; min-width: 0; width: auto; }
+  .log-row { grid-template-columns: 64px minmax(0, 1fr); }
+  .log-next, .log-date { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; }
+  .badge { overflow-wrap: anywhere; }
+  .stage-nav, .sheet-actions { flex-wrap: wrap; }
+}
